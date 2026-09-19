@@ -18,12 +18,31 @@ pub enum NumberValue {
     Float(f32),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub row: Option<usize>,
     pub col: Option<usize>,
     pub value: Option<NumberValue>,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.token_type {
+            TokenType::Number => match self.value {
+                Some(NumberValue::Int(n)) => write!(f, "{n}"),
+                Some(NumberValue::Float(n)) => write!(f, "{n}"),
+                None => unreachable!("Number token without a value"),
+            },
+            TokenType::Plus => write!(f, "+"),
+            TokenType::Minus => write!(f, "-"),
+            TokenType::Star => write!(f, "*"),
+            TokenType::Slash => write!(f, "/"),
+            TokenType::LParen => write!(f, "("),
+            TokenType::RParen => write!(f, ")"),
+            TokenType::Eof => write!(f, "<EOF>"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,18 +63,6 @@ impl fmt::Display for LexError {
 }
 
 impl std::error::Error for LexError {}
-
-fn operator_token_type(ch: char) -> Option<TokenType> {
-    match ch {
-        '+' => Some(TokenType::Plus),
-        '-' => Some(TokenType::Minus),
-        '*' => Some(TokenType::Star),
-        '/' => Some(TokenType::Slash),
-        '(' => Some(TokenType::LParen),
-        ')' => Some(TokenType::RParen),
-        _ => None,
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Lexer {
@@ -80,7 +87,7 @@ impl Lexer {
                 continue;
             } else if ch.is_whitespace() {
                 // no token produced
-            } else if let Some(token_type) = operator_token_type(ch) {
+            } else if let Some(token_type) = Self::operator_token_type(ch) {
                 tokens.push(Token {
                     token_type,
                     row: Some(1),
@@ -126,7 +133,7 @@ impl Lexer {
         }
 
         if let Some(&next) = self.chars.get(index) {
-            if !(next.is_whitespace() || operator_token_type(next).is_some()) {
+            if !(next.is_whitespace() || Self::operator_token_type(next).is_some()) {
                 return Err(self.error_at(index));
             }
         }
@@ -164,6 +171,18 @@ impl Lexer {
             row: 1,
             col: index,
             character: self.chars[index],
+        }
+    }
+
+    fn operator_token_type(ch: char) -> Option<TokenType> {
+        match ch {
+            '+' => Some(TokenType::Plus),
+            '-' => Some(TokenType::Minus),
+            '*' => Some(TokenType::Star),
+            '/' => Some(TokenType::Slash),
+            '(' => Some(TokenType::LParen),
+            ')' => Some(TokenType::RParen),
+            _ => None,
         }
     }
 }
