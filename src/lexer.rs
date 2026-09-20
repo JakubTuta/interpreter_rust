@@ -14,8 +14,76 @@ pub enum TokenType {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NumberValue {
-    Int(u32),
-    Float(f32),
+    Int(i64),
+    Float(f64),
+}
+
+impl NumberValue {
+    pub fn as_f64(self) -> f64 {
+        match self {
+            NumberValue::Int(v) => v as f64,
+            NumberValue::Float(v) => v,
+        }
+    }
+
+    fn both_ints(self, other: Self) -> Option<(i64, i64)> {
+        match (self, other) {
+            (NumberValue::Int(a), NumberValue::Int(b)) => Some((a, b)),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Neg for NumberValue {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            NumberValue::Int(v) => NumberValue::Int(-v),
+            NumberValue::Float(v) => NumberValue::Float(-v),
+        }
+    }
+}
+
+impl std::ops::Add for NumberValue {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        match self.both_ints(other) {
+            Some((a, b)) => NumberValue::Int(a + b),
+            None => NumberValue::Float(self.as_f64() + other.as_f64()),
+        }
+    }
+}
+
+impl std::ops::Sub for NumberValue {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        match self.both_ints(other) {
+            Some((a, b)) => NumberValue::Int(a - b),
+            None => NumberValue::Float(self.as_f64() - other.as_f64()),
+        }
+    }
+}
+
+impl std::ops::Mul for NumberValue {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        match self.both_ints(other) {
+            Some((a, b)) => NumberValue::Int(a * b),
+            None => NumberValue::Float(self.as_f64() * other.as_f64()),
+        }
+    }
+}
+
+impl std::ops::Div for NumberValue {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
+        NumberValue::Float(self.as_f64() / other.as_f64())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
