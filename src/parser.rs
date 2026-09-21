@@ -16,15 +16,11 @@ pub enum UnaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Literal {
-    pub row: Option<usize>,
-    pub col: Option<usize>,
     pub value: NumberValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BinaryOp {
-    pub row: Option<usize>,
-    pub col: Option<usize>,
     pub left: Box<Expr>,
     pub op: BinaryOperator,
     pub right: Box<Expr>,
@@ -32,17 +28,22 @@ pub struct BinaryOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOp {
-    pub row: Option<usize>,
-    pub col: Option<usize>,
     pub op: UnaryOperator,
     pub operand: Box<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub enum ExprKind {
     Literal(Literal),
     Binary(BinaryOp),
     Unary(UnaryOp),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Expr {
+    pub row: Option<usize>,
+    pub col: Option<usize>,
+    pub kind: ExprKind,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -132,13 +133,15 @@ impl Parser {
             self.position += 1;
 
             let right_expr = self.parse_expression(current_precedence + 1)?;
-            left_expr = Expr::Binary(BinaryOp {
+            left_expr = Expr {
                 row: token.row,
                 col: token.col,
-                left: Box::new(left_expr),
-                op: operator,
-                right: Box::new(right_expr),
-            });
+                kind: ExprKind::Binary(BinaryOp {
+                    left: Box::new(left_expr),
+                    op: operator,
+                    right: Box::new(right_expr),
+                }),
+            };
         }
 
         Ok(left_expr)
@@ -148,30 +151,25 @@ impl Parser {
         let token = self.tokens[self.position];
 
         match token.token_type {
-            TokenType::Number => {
+            TokenType::Number(val) => {
                 self.position += 1;
-                match token.value {
-                    Some(value) => Ok(Expr::Literal(Literal {
-                        row: token.row,
-                        col: token.col,
-                        value,
-                    })),
-                    None => Err(ParseError {
-                        row: token.row,
-                        col: token.col,
-                        message: format!("Number token is missing a value: {token}"),
-                    }),
-                }
+                Ok(Expr {
+                    row: token.row,
+                    col: token.col,
+                    kind: ExprKind::Literal(Literal { value: val }),
+                })
             }
             TokenType::Minus => {
                 self.position += 1;
                 let operand = self.parse_expression(3)?;
-                Ok(Expr::Unary(UnaryOp {
+                Ok(Expr {
                     row: token.row,
                     col: token.col,
-                    op: UnaryOperator::Neg,
-                    operand: Box::new(operand),
-                }))
+                    kind: ExprKind::Unary(UnaryOp {
+                        op: UnaryOperator::Neg,
+                        operand: Box::new(operand),
+                    }),
+                })
             }
             TokenType::LParen => {
                 self.position += 1;
@@ -234,7 +232,10 @@ mod tests {
     fn parses_simple_addition() {
         let expr = parse("1 + 2").unwrap();
         match expr {
-            Expr::Binary(b) => assert_eq!(b.op, BinaryOperator::Add),
+            Expr {
+                kind: ExprKind::Binary(b),
+                ..
+            } => assert_eq!(b.op, BinaryOperator::Add),
             other => panic!("expected a binary expression, got {other:?}"),
         }
     }
@@ -243,15 +244,23 @@ mod tests {
     fn multiplication_binds_tighter_than_addition() {
         let expr = parse("1 + 2 * 3").unwrap();
         match expr {
-            Expr::Binary(BinaryOp {
-                op: BinaryOperator::Add,
-                right,
+            Expr {
+                kind:
+                    ExprKind::Binary(BinaryOp {
+                        op: BinaryOperator::Add,
+                        right,
+                        ..
+                    }),
                 ..
-            }) => match *right {
-                Expr::Binary(BinaryOp {
-                    op: BinaryOperator::Mul,
+            } => match *right {
+                Expr {
+                    kind:
+                        ExprKind::Binary(BinaryOp {
+                            op: BinaryOperator::Mul,
+                            ..
+                        }),
                     ..
-                }) => {}
+                } => {}
                 other => panic!("expected the right side to be a multiplication, got {other:?}"),
             },
             other => panic!("expected a top-level addition, got {other:?}"),
@@ -262,7 +271,10 @@ mod tests {
     fn parentheses_override_precedence() {
         let expr = parse("(1 + 2) * 3").unwrap();
         match expr {
-            Expr::Binary(b) => assert_eq!(b.op, BinaryOperator::Mul),
+            Expr {
+                kind: ExprKind::Binary(b),
+                ..
+            } => assert_eq!(b.op, BinaryOperator::Mul),
             other => panic!("expected a binary expression, got {other:?}"),
         }
     }
@@ -271,7 +283,10 @@ mod tests {
     fn parses_unary_minus() {
         let expr = parse("-5").unwrap();
         match expr {
-            Expr::Unary(u) => assert_eq!(u.op, UnaryOperator::Neg),
+            Expr {
+                kind: ExprKind::Unary(u),
+                ..
+            } => assert_eq!(u.op, UnaryOperator::Neg),
             other => panic!("expected a unary expression, got {other:?}"),
         }
     }
@@ -285,10 +300,9 @@ mod tests {
     #[test]
     fn errors_on_missing_eof() {
         let tokens = vec![Token {
-            token_type: TokenType::Number,
+            token_type: TokenType::Number(NumberValue::Int(1)),
             row: Some(1),
             col: Some(0),
-            value: Some(NumberValue::Int(1)),
         }];
         let err = Parser::new().parse(tokens).unwrap_err();
         assert_eq!(err.message, "Last token has to be EOF");

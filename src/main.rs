@@ -23,7 +23,7 @@ fn main() {
             .tokenize(example)
             .map_err(|e| e.to_string())
             .and_then(|tokens| Parser::new().parse(tokens).map_err(|e| e.to_string()))
-            .and_then(|expr| Evaluator::new().evaluate(expr).map_err(|e| e.to_string()));
+            .and_then(|expr| Evaluator::new().evaluate(&expr).map_err(|e| e.to_string()));
 
         match result {
             Ok(value) => println!("  = {value:?}"),

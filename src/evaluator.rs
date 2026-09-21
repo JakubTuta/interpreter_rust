@@ -1,5 +1,5 @@
 use crate::lexer::NumberValue;
-use crate::parser::{BinaryOperator, Expr, UnaryOperator};
+use crate::parser::{BinaryOperator, Expr, ExprKind, UnaryOperator};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,20 +30,20 @@ impl Evaluator {
         Self::default()
     }
 
-    pub fn evaluate(&self, expression: Expr) -> Result<NumberValue, EvaluateError> {
-        match expression {
-            Expr::Literal(expr) => Ok(expr.value),
+    pub fn evaluate(&self, expression: &Expr) -> Result<NumberValue, EvaluateError> {
+        match &expression.kind {
+            ExprKind::Literal(expr) => Ok(expr.value),
 
-            Expr::Unary(expr) => {
-                let value = self.evaluate(*expr.operand)?;
+            ExprKind::Unary(expr) => {
+                let value = self.evaluate(&expr.operand)?;
                 match expr.op {
                     UnaryOperator::Neg => Ok(-value),
                 }
             }
 
-            Expr::Binary(expr) => {
-                let left_value = self.evaluate(*expr.left)?;
-                let right_value = self.evaluate(*expr.right)?;
+            ExprKind::Binary(expr) => {
+                let left_value = self.evaluate(&expr.left)?;
+                let right_value = self.evaluate(&expr.right)?;
 
                 match expr.op {
                     BinaryOperator::Add => Ok(left_value + right_value),
@@ -52,8 +52,8 @@ impl Evaluator {
                     BinaryOperator::Div => {
                         if right_value.as_f64() == 0.0 {
                             return Err(EvaluateError {
-                                row: expr.row,
-                                col: expr.col,
+                                row: expression.row,
+                                col: expression.col,
                                 message: String::from("Division by zero"),
                             });
                         }
@@ -74,7 +74,7 @@ mod tests {
     fn eval(source: &str) -> Result<NumberValue, EvaluateError> {
         let tokens = Lexer::new().tokenize(source).unwrap();
         let expr = Parser::new().parse(tokens).unwrap();
-        Evaluator::new().evaluate(expr)
+        Evaluator::new().evaluate(&expr)
     }
 
     #[test]

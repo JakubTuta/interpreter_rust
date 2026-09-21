@@ -1,8 +1,8 @@
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
-    Number,
+    Number(NumberValue),
     Plus,
     Minus,
     Star,
@@ -91,16 +91,14 @@ pub struct Token {
     pub token_type: TokenType,
     pub row: Option<usize>,
     pub col: Option<usize>,
-    pub value: Option<NumberValue>,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.token_type {
-            TokenType::Number => match self.value {
-                Some(NumberValue::Int(n)) => write!(f, "{n}"),
-                Some(NumberValue::Float(n)) => write!(f, "{n}"),
-                None => unreachable!("Number token without a value"),
+            TokenType::Number(val) => match val {
+                NumberValue::Int(n) => write!(f, "{n}"),
+                NumberValue::Float(n) => write!(f, "{n}"),
             },
             TokenType::Plus => write!(f, "+"),
             TokenType::Minus => write!(f, "-"),
@@ -160,7 +158,6 @@ impl Lexer {
                     token_type,
                     row: Some(1),
                     col: Some(self.position),
-                    value: None,
                 });
             } else {
                 return Err(LexError {
@@ -177,7 +174,6 @@ impl Lexer {
             token_type: TokenType::Eof,
             row: None,
             col: None,
-            value: None,
         });
 
         Ok(tokens)
@@ -210,20 +206,15 @@ impl Lexer {
         self.position = index;
 
         let value = if lexeme.contains('.') {
-            NumberValue::Float(
-                lexeme
-                    .parse()
-                    .expect("lexeme was validated as digits + '.'"),
-            )
+            NumberValue::Float(lexeme.parse().map_err(|_| self.error_at(start))?)
         } else {
-            NumberValue::Int(lexeme.parse().expect("lexeme was validated as digits"))
+            NumberValue::Int(lexeme.parse().map_err(|_| self.error_at(start))?)
         };
 
         Ok(Token {
-            token_type: TokenType::Number,
+            token_type: TokenType::Number(value),
             row: Some(1),
             col: Some(start),
-            value: Some(value),
         })
     }
 
@@ -271,7 +262,15 @@ mod tests {
     #[test]
     fn tokenizes_addition() {
         use TokenType::*;
-        assert_eq!(token_types("1 + 2"), vec![Number, Plus, Number, Eof]);
+        assert_eq!(
+            token_types("1 + 2"),
+            vec![
+                Number(NumberValue::Int(1)),
+                Plus,
+                Number(NumberValue::Int(2)),
+                Eof
+            ]
+        );
     }
 
     #[test]
@@ -280,7 +279,17 @@ mod tests {
         assert_eq!(
             token_types("1 + 2 - 3 * 4 / (5)"),
             vec![
-                Number, Plus, Number, Minus, Number, Star, Number, Slash, LParen, Number, RParen,
+                Number(NumberValue::Int(1)),
+                Plus,
+                Number(NumberValue::Int(2)),
+                Minus,
+                Number(NumberValue::Int(3)),
+                Star,
+                Number(NumberValue::Int(4)),
+                Slash,
+                LParen,
+                Number(NumberValue::Int(5)),
+                RParen,
                 Eof
             ]
         );
@@ -289,14 +298,17 @@ mod tests {
     #[test]
     fn parses_int_and_float_values() {
         let tokens = Lexer::new().tokenize("6 3.14").unwrap();
-        assert_eq!(tokens[0].value, Some(NumberValue::Int(6)));
-        assert_eq!(tokens[1].value, Some(NumberValue::Float(3.14)));
+        assert_eq!(tokens[0].token_type, TokenType::Number(NumberValue::Int(6)));
+        assert_eq!(
+            tokens[1].token_type,
+            TokenType::Number(NumberValue::Float(3.14))
+        );
     }
 
     #[test]
     fn single_digit_source_produces_number_then_eof() {
         use TokenType::*;
-        assert_eq!(token_types("6"), vec![Number, Eof]);
+        assert_eq!(token_types("6"), vec![Number(NumberValue::Int(6)), Eof]);
     }
 
     #[test]
