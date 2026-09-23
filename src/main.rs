@@ -1,5 +1,6 @@
 mod evaluator;
 mod lexer;
+mod models;
 mod parser;
 
 use evaluator::Evaluator;
