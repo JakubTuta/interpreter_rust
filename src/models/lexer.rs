@@ -9,6 +9,7 @@ pub enum TokenType {
     Slash,
     LParen,
     RParen,
+    Semicolon,
     Eof,
 }
 
@@ -106,6 +107,7 @@ impl fmt::Display for Token {
             TokenType::Slash => write!(f, "/"),
             TokenType::LParen => write!(f, "("),
             TokenType::RParen => write!(f, ")"),
+            TokenType::Semicolon => write!(f, ";"),
             TokenType::Eof => write!(f, "<EOF>"),
         }
     }

@@ -1,7 +1,5 @@
 use std::fmt;
 
-use crate::models::lexer::NumberValue;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOperator {
     Add,
@@ -13,38 +11,6 @@ pub enum BinaryOperator {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOperator {
     Neg,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Literal {
-    pub value: NumberValue,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryOp {
-    pub left: Box<Expr>,
-    pub op: BinaryOperator,
-    pub right: Box<Expr>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnaryOp {
-    pub op: UnaryOperator,
-    pub operand: Box<Expr>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExprKind {
-    Literal(Literal),
-    Binary(BinaryOp),
-    Unary(UnaryOp),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Expr {
-    pub row: Option<usize>,
-    pub col: Option<usize>,
-    pub kind: ExprKind,
 }
 
 #[derive(Debug, Clone, PartialEq)]

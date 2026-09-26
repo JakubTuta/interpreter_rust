@@ -1,29 +1,55 @@
+use crate::models::ast::{
+    Expression, ExpressionKind, ExpressionStatement, Statement, StatementKind,
+};
 use crate::models::evaluator::EvaluateError;
 use crate::models::lexer::NumberValue;
-use crate::models::parser::{BinaryOperator, Expr, ExprKind, UnaryOperator};
+use crate::models::parser::{BinaryOperator, UnaryOperator};
 
-#[derive(Debug, Default)]
-pub struct Evaluator {}
+#[derive(Debug)]
+pub struct Evaluator {
+    statements: Vec<Statement>,
+}
 
 impl Evaluator {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(statements: Vec<Statement>) -> Self {
+        Self { statements }
     }
 
-    pub fn evaluate(&self, expression: &Expr) -> Result<NumberValue, EvaluateError> {
-        match &expression.kind {
-            ExprKind::Literal(expr) => Ok(expr.value),
+    pub fn evaluate(&self) -> Result<Vec<NumberValue>, EvaluateError> {
+        let mut evaluated = Vec::new();
 
-            ExprKind::Unary(expr) => {
-                let value = self.evaluate(&expr.operand)?;
+        for statement in &self.statements {
+            evaluated.push(self.evaluate_statement(&statement)?);
+        }
+
+        Ok(evaluated)
+    }
+
+    pub fn evaluate_statement(&self, statement: &Statement) -> Result<NumberValue, EvaluateError> {
+        match &statement.kind {
+            StatementKind::ExpressionStatement(ExpressionStatement { expression: expr }) => {
+                Ok(self.evaluate_expression(&expr)?)
+            }
+        }
+    }
+
+    pub fn evaluate_expression(
+        &self,
+        expression: &Expression,
+    ) -> Result<NumberValue, EvaluateError> {
+        match &expression.kind {
+            ExpressionKind::Literal(expr) => Ok(expr.value),
+
+            ExpressionKind::Unary(expr) => {
+                let value = self.evaluate_expression(&expr.operand)?;
                 match expr.op {
                     UnaryOperator::Neg => Ok(-value),
                 }
             }
 
-            ExprKind::Binary(expr) => {
-                let left_value = self.evaluate(&expr.left)?;
-                let right_value = self.evaluate(&expr.right)?;
+            ExpressionKind::Binary(expr) => {
+                let left_value = self.evaluate_expression(&expr.left)?;
+                let right_value = self.evaluate_expression(&expr.right)?;
 
                 match expr.op {
                     BinaryOperator::Add => Ok(left_value + right_value),
@@ -51,45 +77,59 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
-    fn eval(source: &str) -> Result<NumberValue, EvaluateError> {
-        let tokens = Lexer::new().tokenize(source).unwrap();
-        let expr = Parser::new().parse(tokens).unwrap();
-        Evaluator::new().evaluate(&expr)
+    fn eval(source: &str) -> Result<Vec<NumberValue>, EvaluateError> {
+        let tokens = Lexer::new(source).tokenize().unwrap();
+        let expr = Parser::new(tokens).parse().unwrap();
+        Evaluator::new(expr).evaluate()
     }
 
     #[test]
     fn adds_two_ints() {
-        assert_eq!(eval("1 + 2").unwrap(), NumberValue::Int(3));
+        let mut results = Vec::new();
+        results.push(NumberValue::Int(3));
+        assert_eq!(eval("1 + 2").unwrap(), results);
     }
 
     #[test]
     fn respects_operator_precedence() {
-        assert_eq!(eval("1 + 2 * 3").unwrap(), NumberValue::Int(7));
+        let mut results = Vec::new();
+        results.push(NumberValue::Int(7));
+        assert_eq!(eval("1 + 2 * 3").unwrap(), results);
     }
 
     #[test]
     fn parentheses_override_precedence() {
-        assert_eq!(eval("(1 + 2) * 3").unwrap(), NumberValue::Int(9));
+        let mut results = Vec::new();
+        results.push(NumberValue::Int(9));
+        assert_eq!(eval("(1 + 2) * 3").unwrap(), results);
     }
 
     #[test]
     fn unary_minus_negates() {
-        assert_eq!(eval("-5 + 3").unwrap(), NumberValue::Int(-2));
+        let mut results = Vec::new();
+        results.push(NumberValue::Int(-2));
+        assert_eq!(eval("-5 + 3").unwrap(), results);
     }
 
     #[test]
     fn int_and_int_stays_int() {
-        assert_eq!(eval("7 - 2").unwrap(), NumberValue::Int(5));
+        let mut results = Vec::new();
+        results.push(NumberValue::Int(5));
+        assert_eq!(eval("7 - 2").unwrap(), results);
     }
 
     #[test]
     fn mixing_float_widens_to_float() {
-        assert_eq!(eval("1 + 2.5").unwrap(), NumberValue::Float(3.5));
+        let mut results = Vec::new();
+        results.push(NumberValue::Float(3.5));
+        assert_eq!(eval("1 + 2.5").unwrap(), results);
     }
 
     #[test]
     fn division_of_two_ints_is_still_a_float() {
-        assert_eq!(eval("7 / 2").unwrap(), NumberValue::Float(3.5));
+        let mut results = Vec::new();
+        results.push(NumberValue::Float(3.5));
+        assert_eq!(eval("7 / 2").unwrap(), results);
     }
 
     #[test]
